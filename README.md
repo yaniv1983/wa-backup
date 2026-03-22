@@ -1,5 +1,5 @@
 <p align="center">
-  <img src="docs/icon.png" width="100" alt="WA Backup Icon" />
+  <img src="docs/icon.svg" width="100" alt="WA Backup Icon" />
 </p>
 
 <h1 align="center">WA Backup</h1>
