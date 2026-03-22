@@ -1,6 +1,20 @@
-# WA Backup
+<p align="center">
+  <img src="docs/icon.png" width="100" alt="WA Backup Icon" />
+</p>
 
-An Android app that automatically backs up WhatsApp (Business & Personal) encrypted database files to Google Drive with scheduled backups, progress notifications, and retention management.
+<h1 align="center">WA Backup</h1>
+
+<p align="center">
+  Automatic WhatsApp backup to Google Drive for Android<br/>
+  Supports Business & Personal, scheduled backups, progress notifications, and retention management
+</p>
+
+<p align="center">
+  <a href="https://github.com/yaniv1983/wa-backup/releases/latest"><img src="https://img.shields.io/github/v/release/yaniv1983/wa-backup?style=flat-square" alt="Release" /></a>
+  <a href="LICENSE"><img src="https://img.shields.io/github/license/yaniv1983/wa-backup?style=flat-square" alt="License" /></a>
+</p>
+
+---
 
 ## Features
 
@@ -17,9 +31,17 @@ An Android app that automatically backs up WhatsApp (Business & Personal) encryp
 
 ## Screenshots
 
-| Home | History | Settings |
-|------|---------|----------|
-| Status overview, backup button, recent files | Past backup records with status | Schedule, retention, variant selection |
+<p align="center">
+  <img src="docs/screenshots/home.png" width="250" alt="Home Screen" />
+  &nbsp;&nbsp;
+  <img src="docs/screenshots/history.png" width="250" alt="History Screen" />
+  &nbsp;&nbsp;
+  <img src="docs/screenshots/settings.png" width="250" alt="Settings Screen" />
+</p>
+
+## Download
+
+Download the latest APK from the [Releases page](https://github.com/yaniv1983/wa-backup/releases/latest).
 
 ## Prerequisites
 
@@ -51,7 +73,7 @@ An Android app that automatically backs up WhatsApp (Business & Personal) encryp
 
 ```bash
 # Clone the repository
-git clone https://github.com/your-username/wa-backup.git
+git clone https://github.com/yaniv1983/wa-backup.git
 cd wa-backup
 
 # Install dependencies
