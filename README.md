@@ -135,9 +135,10 @@ src/
 | `FOREGROUND_SERVICE` | Background backup execution |
 | `WAKE_LOCK` | Keep device awake during backup |
 
-## Privacy Policy
+## Privacy & Terms
 
-[Read the full privacy policy](PRIVACY_POLICY.md). In short: the app does not collect, store, or transmit any personal data. Everything stays on your device and your Google Drive.
+- [Privacy Policy](PRIVACY_POLICY.md) — No data is collected. Everything stays on your device and your Google Drive.
+- [Terms of Service](TERMS_OF_SERVICE.md)
 
 ## License
 
