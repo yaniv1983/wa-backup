@@ -10,6 +10,9 @@ const SETTINGS_KEY = '@wa_backup_settings';
 const MAX_RETRIES = 3;
 const RETRY_DELAYS = [5000, 15000, 45000];
 
+// Global lock to prevent concurrent backups
+let backupInProgress = false;
+
 export async function getSettings(): Promise<BackupSettings> {
   const raw = await AsyncStorage.getItem(SETTINGS_KEY);
   if (!raw) return DEFAULT_SETTINGS;
@@ -44,7 +47,26 @@ function delay(ms: number): Promise<void> {
   return new Promise(resolve => setTimeout(resolve, ms));
 }
 
+export function isBackupRunning(): boolean {
+  return backupInProgress;
+}
+
 export async function performBackup(
+  onProgress?: (progress: UploadProgress) => void,
+): Promise<BackupRecord> {
+  if (backupInProgress) {
+    throw new Error('A backup is already in progress.');
+  }
+  backupInProgress = true;
+
+  try {
+    return await _doBackup(onProgress);
+  } finally {
+    backupInProgress = false;
+  }
+}
+
+async function _doBackup(
   onProgress?: (progress: UploadProgress) => void,
 ): Promise<BackupRecord> {
   const settings = await getSettings();

@@ -15,7 +15,7 @@ import Icon from 'react-native-vector-icons/MaterialCommunityIcons';
 import {BackupFile, BackupRecord, UploadProgress} from '../types';
 import {findBackupFiles, formatFileSize} from '../services/fileService';
 import {isSignedIn, signIn, signOut, configureGoogleSignIn} from '../services/googleDriveService';
-import {performBackup, getBackupHistory, getSettings} from '../services/backupManager';
+import {performBackup, getBackupHistory, getSettings, isBackupRunning} from '../services/backupManager';
 import {isWifiConnected} from '../services/networkService';
 import {requestStoragePermission, hasStoragePermission} from '../services/permissionService';
 import {colors, spacing, borderRadius} from '../theme';
@@ -35,6 +35,7 @@ export default function HomeScreen() {
     try {
       const settings = await getSettings();
       setRootMode(settings.useRoot);
+      setUploading(isBackupRunning());
       const [foundFiles, backupHistory, wifi, storage] = await Promise.all([
         findBackupFiles(settings.useRoot, settings.whatsappVariant),
         getBackupHistory(),
