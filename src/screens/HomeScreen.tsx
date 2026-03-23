@@ -50,7 +50,8 @@ export default function HomeScreen() {
   }, []);
 
   useEffect(() => {
-    configureGoogleSignIn();
+    // Configure Google Sign-In with custom client ID if set
+    getSettings().then(s => configureGoogleSignIn(s.customWebClientId));
     // Request notification permission (Android 13+)
     if (Platform.OS === 'android' && Platform.Version >= 33) {
       PermissionsAndroid.request(

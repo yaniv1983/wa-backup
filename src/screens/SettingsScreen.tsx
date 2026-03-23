@@ -7,7 +7,7 @@ import Icon from 'react-native-vector-icons/MaterialCommunityIcons';
 import {BackupSettings, DEFAULT_SETTINGS} from '../types';
 import {getSettings, saveSettings} from '../services/backupManager';
 import {startBackgroundBackup, stopBackgroundBackup} from '../services/backgroundService';
-import {listDriveFolders, createDriveFolder, isSignedIn} from '../services/googleDriveService';
+import {listDriveFolders, createDriveFolder, isSignedIn, configureGoogleSignIn} from '../services/googleDriveService';
 import {hasRootAccess} from '../services/permissionService';
 import {colors, spacing, borderRadius} from '../theme';
 import {DriveFolder} from '../types';
@@ -21,9 +21,14 @@ export default function SettingsScreen() {
   const [loadingFolders, setLoadingFolders] = useState(false);
   const [newFolderName, setNewFolderName] = useState('');
   const [creatingFolder, setCreatingFolder] = useState(false);
+  const [showDeveloper, setShowDeveloper] = useState(false);
+  const [customClientId, setCustomClientId] = useState('');
 
   useEffect(() => {
-    getSettings().then(setSettings);
+    getSettings().then(s => {
+      setSettings(s);
+      setCustomClientId(s.customWebClientId || '');
+    });
   }, []);
 
   const updateSetting = async <K extends keyof BackupSettings>(key: K, value: BackupSettings[K]) => {
@@ -245,11 +250,61 @@ export default function SettingsScreen() {
       <Text style={styles.sectionHeader}>About</Text>
       <View style={styles.card}>
         <Text style={styles.cardTitle}>WA Backup</Text>
-        <Text style={styles.cardSubtitle}>Version 1.1.0</Text>
+        <Text style={styles.cardSubtitle}>Version 1.5.0</Text>
         <Text style={[styles.cardSubtitle, {marginTop: spacing.xs}]}>
           Backup WhatsApp databases to Google Drive
         </Text>
       </View>
+
+      {/* Developer Section */}
+      <TouchableOpacity onPress={() => setShowDeveloper(!showDeveloper)}>
+        <View style={styles.cardRow}>
+          <Text style={[styles.sectionHeader, {flex: 1}]}>Developer</Text>
+          <Icon name={showDeveloper ? 'chevron-up' : 'chevron-down'} size={20} color={colors.primaryDark} style={{marginTop: spacing.md}} />
+        </View>
+      </TouchableOpacity>
+      {showDeveloper && (
+        <View style={styles.card}>
+          <Text style={styles.cardTitle}>Custom Web Client ID</Text>
+          <Text style={[styles.cardSubtitle, {marginBottom: spacing.sm}]}>
+            Only needed if you built the app from source with your own signing key.
+          </Text>
+          <TextInput
+            style={styles.devInput}
+            placeholder="Paste your Web Client ID..."
+            value={customClientId}
+            onChangeText={setCustomClientId}
+            autoCapitalize="none"
+            autoCorrect={false}
+          />
+          <View style={styles.devButtons}>
+            <TouchableOpacity
+              style={[styles.devBtn, {backgroundColor: colors.primary}]}
+              onPress={async () => {
+                const id = customClientId.trim();
+                const newSettings = {...settings, customWebClientId: id || undefined};
+                setSettings(newSettings);
+                await saveSettings(newSettings);
+                configureGoogleSignIn(id || undefined);
+                Alert.alert('Saved', id ? 'Custom client ID saved. Sign out and sign in again to apply.' : 'Reset to default client ID.');
+              }}>
+              <Text style={styles.devBtnText}>Save & Apply</Text>
+            </TouchableOpacity>
+            <TouchableOpacity
+              style={[styles.devBtn, {backgroundColor: '#eee'}]}
+              onPress={async () => {
+                setCustomClientId('');
+                const newSettings = {...settings, customWebClientId: undefined};
+                setSettings(newSettings);
+                await saveSettings(newSettings);
+                configureGoogleSignIn();
+                Alert.alert('Reset', 'Using default client ID.');
+              }}>
+              <Text style={[styles.devBtnText, {color: colors.textSecondary}]}>Reset to Default</Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+      )}
 
       {/* Folder Picker Modal */}
       <Modal visible={folderModalVisible} animationType="slide" transparent onRequestClose={() => setFolderModalVisible(false)}>
@@ -337,4 +392,8 @@ const styles = StyleSheet.create({
   folderItem: {flexDirection: 'row', alignItems: 'center', padding: 14, borderBottomWidth: 1, borderBottomColor: '#f0f0f0', gap: spacing.sm},
   folderItemText: {fontSize: 15, color: colors.textPrimary, flex: 1},
   modalCloseBtn: {marginTop: spacing.md, padding: 14, borderRadius: borderRadius.sm, backgroundColor: '#f5f5f5', alignItems: 'center'},
+  devInput: {borderWidth: 1, borderColor: '#ddd', borderRadius: borderRadius.sm, paddingHorizontal: 12, paddingVertical: 10, fontSize: 13, marginBottom: spacing.sm, fontFamily: 'monospace'},
+  devButtons: {flexDirection: 'row', gap: spacing.sm},
+  devBtn: {flex: 1, padding: 12, borderRadius: borderRadius.sm, alignItems: 'center'},
+  devBtnText: {color: '#fff', fontWeight: '600', fontSize: 13},
 });

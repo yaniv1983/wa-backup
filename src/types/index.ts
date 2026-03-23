@@ -38,6 +38,7 @@ export interface BackupSettings {
   driveFolderName: string;
   backupRetentionCount: number;
   whatsappVariant: 'business' | 'personal' | 'both';
+  customWebClientId?: string;
 }
 
 export const DEFAULT_SETTINGS: BackupSettings = {

@@ -1,18 +1,18 @@
 import {GoogleSignin} from '@react-native-google-signin/google-signin';
 import RNFS from 'react-native-fs';
 import {DriveFolder, UploadProgress} from '../types';
-import {WEB_CLIENT_ID} from '../config';
+import {DEFAULT_WEB_CLIENT_ID} from '../config';
 
 const DRIVE_API = 'https://www.googleapis.com/drive/v3';
 const DRIVE_UPLOAD_API = 'https://www.googleapis.com/upload/drive/v3';
 const DEFAULT_FOLDER_NAME = 'WA Business Backup';
 const CHUNK_SIZE = 5 * 1024 * 1024; // 5MB chunks
 
-export function configureGoogleSignIn() {
+export function configureGoogleSignIn(customClientId?: string) {
   GoogleSignin.configure({
     scopes: ['https://www.googleapis.com/auth/drive'],
     offlineAccess: true,
-    webClientId: WEB_CLIENT_ID,
+    webClientId: customClientId || DEFAULT_WEB_CLIENT_ID,
   });
 }
 

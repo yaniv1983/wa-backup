@@ -16,6 +16,15 @@
 
 ---
 
+## Quick Start (Users)
+
+1. Download the latest APK from the [Releases page](https://github.com/yaniv1983/wa-backup/releases/latest)
+2. Install on your Android device
+3. Follow the setup wizard — sign in to Google and grant storage access
+4. That's it! Tap **Backup Now** or enable automatic scheduled backups
+
+No Google Cloud setup required — the app works out of the box.
+
 ## Features
 
 - **Manual & Automatic Backup** - Back up on demand or schedule daily/weekly at a specific time
@@ -28,6 +37,7 @@
 - **Root Mode** - Optional root access for direct database file access
 - **Retry with Backoff** - Failed uploads retry up to 3 times with exponential backoff
 - **Backup History** - View past backups with status, size, and timestamps
+- **Setup Wizard** - First-run onboarding guides you through sign-in and permissions
 
 ## Screenshots
 
@@ -39,55 +49,45 @@
   <img src="docs/screenshots/settings.png" width="250" alt="Settings Screen" />
 </p>
 
-## Download
+---
 
-Download the latest APK from the [Releases page](https://github.com/yaniv1983/wa-backup/releases/latest).
+## Building from Source (Developers)
 
-## Prerequisites
+If you want to build the app yourself with your own signing key, you'll need to set up your own Google OAuth credentials.
+
+### Prerequisites
 
 - Node.js 18+
 - React Native CLI
 - Android Studio with SDK 34
 - JDK 17
-- A Google Cloud project with the Google Drive API enabled
 
-## Google Cloud Setup
+### Google Cloud Setup
 
 1. Go to [Google Cloud Console](https://console.cloud.google.com/)
 2. Create a new project (or select existing)
 3. Enable the **Google Drive API**
 4. Go to **Credentials** > **Create Credentials** > **OAuth 2.0 Client ID**
-5. Create a **Web application** client - copy the Client ID
+5. Create a **Web application** client — copy the Client ID
 6. Create an **Android** client:
    - Package name: `com.wabackup`
    - SHA-1: Get it by running:
      ```bash
      cd android && ./gradlew signingReport
      ```
-7. Copy your Web Client ID into `.env`:
-   ```
-   WEB_CLIENT_ID=your-web-client-id.apps.googleusercontent.com
-   ```
 
-## Installation
+### Build & Run
 
 ```bash
-# Clone the repository
 git clone https://github.com/yaniv1983/wa-backup.git
 cd wa-backup
-
-# Install dependencies
 npm install
-
-# Set up your Google OAuth credentials
-cp .env.example .env
-# Edit .env with your WEB_CLIENT_ID
-
-# Build and run on a connected device/emulator
 npx react-native run-android
 ```
 
-## Building a Release APK
+After installing, go to **Settings → Developer** in the app and paste your Web Client ID.
+
+### Release APK
 
 ```bash
 cd android
@@ -100,14 +100,15 @@ The APK will be at `android/app/build/outputs/apk/release/app-release.apk`.
 
 ```
 src/
-├── config.ts                    # Environment configuration
+├── config.ts                    # Default OAuth client ID
 ├── theme.ts                     # Colors, spacing, border radius
 ├── types/
 │   └── index.ts                 # TypeScript interfaces & defaults
 ├── screens/
+│   ├── SetupWizard.tsx          # First-run onboarding wizard
 │   ├── HomeScreen.tsx           # Main screen - status, backup button, file list
 │   ├── HistoryScreen.tsx        # Backup history with pull-to-refresh
-│   └── SettingsScreen.tsx       # Schedule, storage, Drive, about settings
+│   └── SettingsScreen.tsx       # Schedule, storage, Drive, developer settings
 └── services/
     ├── alarmSchedulerService.ts # JS wrapper for native AlarmManager module
     ├── backgroundService.ts     # Start/stop background backup scheduling
@@ -118,17 +119,6 @@ src/
     ├── networkService.ts        # WiFi connectivity checks
     ├── notificationService.ts   # Upload progress & status notifications
     └── permissionService.ts     # Android permission requests
-
-android/.../java/com/wabackup/
-├── MainActivity.kt
-├── MainApplication.kt
-├── AlarmSchedulerModule.kt      # Native AlarmManager exact scheduling
-├── AlarmSchedulerPackage.kt     # React Native package registration
-├── BackupAlarmReceiver.kt       # BroadcastReceiver for alarm events
-├── BackupTaskService.kt         # HeadlessJsTaskService for background work
-├── BootReceiver.kt              # Re-schedules alarms after device reboot
-├── StorageModule.kt             # Native storage access (root/non-root)
-└── StoragePackage.kt            # React Native package registration
 ```
 
 ## Permissions
