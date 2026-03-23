@@ -2,7 +2,7 @@ import React, {useState, useEffect} from 'react';
 import {
   View, Text, Switch, StyleSheet, TouchableOpacity, Alert, ScrollView, Platform,
 } from 'react-native';
-import DateTimePicker from '@react-native-community/datetimepicker';
+// DateTimePicker removed - crashes on some devices (Xiaomi MIUI)
 import Icon from 'react-native-vector-icons/MaterialCommunityIcons';
 import {BackupSettings, DEFAULT_SETTINGS} from '../types';
 import {getSettings, saveSettings} from '../services/backupManager';
@@ -37,16 +37,22 @@ export default function SettingsScreen() {
     await saveSettings(newSettings);
 
     if (key === 'autoBackupEnabled') {
-      if (value) {
-        await startBackgroundBackup();
-        Alert.alert('Auto Backup', 'Automatic backup has been enabled.');
-      } else {
-        await stopBackgroundBackup();
-        Alert.alert('Auto Backup', 'Automatic backup has been disabled.');
+      try {
+        if (value) {
+          await startBackgroundBackup();
+          Alert.alert('Auto Backup', 'Automatic backup has been enabled.');
+        } else {
+          await stopBackgroundBackup();
+          Alert.alert('Auto Backup', 'Automatic backup has been disabled.');
+        }
+      } catch (e: any) {
+        Alert.alert('Error', 'Failed to configure auto backup: ' + e.message);
       }
     }
     if (key === 'autoBackupTime' && settings.autoBackupEnabled) {
-      await startBackgroundBackup();
+      try {
+        await startBackgroundBackup();
+      } catch {}
     }
   };
 
@@ -61,21 +67,22 @@ export default function SettingsScreen() {
     updateSetting('useRoot', value);
   };
 
-  const handleTimeChange = (_event: any, selectedDate?: Date) => {
-    setShowTimePicker(false);
-    if (selectedDate) {
-      const h = selectedDate.getHours().toString().padStart(2, '0');
-      const m = selectedDate.getMinutes().toString().padStart(2, '0');
-      updateSetting('autoBackupTime', `${h}:${m}`);
-    }
+  const [pickerHour, setPickerHour] = useState(3);
+  const [pickerMinute, setPickerMinute] = useState(30);
+
+  const openTimePicker = () => {
+    const [h, m] = settings.autoBackupTime.split(':');
+    setPickerHour(parseInt(h, 10));
+    setPickerMinute(parseInt(m, 10));
+    setShowTimePicker(true);
   };
 
-  const timeDate = (() => {
-    const [h, m] = settings.autoBackupTime.split(':');
-    const d = new Date();
-    d.setHours(parseInt(h, 10), parseInt(m, 10), 0, 0);
-    return d;
-  })();
+  const saveTime = () => {
+    const h = pickerHour.toString().padStart(2, '0');
+    const m = pickerMinute.toString().padStart(2, '0');
+    updateSetting('autoBackupTime', `${h}:${m}`);
+    setShowTimePicker(false);
+  };
 
   const formatTime = (time: string) => {
     const [h, m] = time.split(':');
@@ -161,7 +168,7 @@ export default function SettingsScreen() {
             </View>
           </View>
 
-          <TouchableOpacity style={styles.card} onPress={() => setShowTimePicker(true)}>
+          <TouchableOpacity style={styles.card} onPress={openTimePicker}>
             <View style={styles.cardRow}>
               <Icon name="clock-time-three" size={20} color={colors.primaryDark} />
               <View style={{flex: 1, marginLeft: spacing.sm}}>
@@ -174,14 +181,43 @@ export default function SettingsScreen() {
         </>
       )}
 
-      {showTimePicker && (
-        <DateTimePicker
-          value={timeDate}
-          mode="time"
-          is24Hour={false}
-          onChange={handleTimeChange}
-        />
-      )}
+      {/* Time Picker Modal */}
+      <Modal visible={showTimePicker} transparent animationType="fade" onRequestClose={() => setShowTimePicker(false)}>
+        <View style={styles.modalOverlay}>
+          <View style={styles.modalContent}>
+            <Text style={styles.modalTitle}>Set Backup Time</Text>
+            <View style={styles.timePickerRow}>
+              <View style={styles.timePickerCol}>
+                <TouchableOpacity style={styles.timeArrow} onPress={() => setPickerHour((pickerHour + 1) % 24)}>
+                  <Icon name="chevron-up" size={28} color={colors.primaryDark} />
+                </TouchableOpacity>
+                <Text style={styles.timePickerValue}>{pickerHour.toString().padStart(2, '0')}</Text>
+                <TouchableOpacity style={styles.timeArrow} onPress={() => setPickerHour((pickerHour + 23) % 24)}>
+                  <Icon name="chevron-down" size={28} color={colors.primaryDark} />
+                </TouchableOpacity>
+              </View>
+              <Text style={styles.timePickerColon}>:</Text>
+              <View style={styles.timePickerCol}>
+                <TouchableOpacity style={styles.timeArrow} onPress={() => setPickerMinute((pickerMinute + 5) % 60)}>
+                  <Icon name="chevron-up" size={28} color={colors.primaryDark} />
+                </TouchableOpacity>
+                <Text style={styles.timePickerValue}>{pickerMinute.toString().padStart(2, '0')}</Text>
+                <TouchableOpacity style={styles.timeArrow} onPress={() => setPickerMinute((pickerMinute + 55) % 60)}>
+                  <Icon name="chevron-down" size={28} color={colors.primaryDark} />
+                </TouchableOpacity>
+              </View>
+            </View>
+            <View style={styles.devButtons}>
+              <TouchableOpacity style={[styles.devBtn, {backgroundColor: '#eee'}]} onPress={() => setShowTimePicker(false)}>
+                <Text style={[styles.devBtnText, {color: colors.textSecondary}]}>Cancel</Text>
+              </TouchableOpacity>
+              <TouchableOpacity style={[styles.devBtn, {backgroundColor: colors.primary}]} onPress={saveTime}>
+                <Text style={styles.devBtnText}>Save</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        </View>
+      </Modal>
 
       {/* Storage Section */}
       <Text style={styles.sectionHeader}>Storage</Text>
@@ -250,7 +286,7 @@ export default function SettingsScreen() {
       <Text style={styles.sectionHeader}>About</Text>
       <View style={styles.card}>
         <Text style={styles.cardTitle}>WA Backup</Text>
-        <Text style={styles.cardSubtitle}>Version 1.5.0</Text>
+        <Text style={styles.cardSubtitle}>Version 1.5.1</Text>
         <Text style={[styles.cardSubtitle, {marginTop: spacing.xs}]}>
           Backup WhatsApp databases to Google Drive
         </Text>
@@ -392,6 +428,11 @@ const styles = StyleSheet.create({
   folderItem: {flexDirection: 'row', alignItems: 'center', padding: 14, borderBottomWidth: 1, borderBottomColor: '#f0f0f0', gap: spacing.sm},
   folderItemText: {fontSize: 15, color: colors.textPrimary, flex: 1},
   modalCloseBtn: {marginTop: spacing.md, padding: 14, borderRadius: borderRadius.sm, backgroundColor: '#f5f5f5', alignItems: 'center'},
+  timePickerRow: {flexDirection: 'row', alignItems: 'center', justifyContent: 'center', marginVertical: spacing.lg},
+  timePickerCol: {alignItems: 'center'},
+  timePickerValue: {fontSize: 40, fontWeight: '700', color: colors.textPrimary, minWidth: 64, textAlign: 'center'},
+  timePickerColon: {fontSize: 40, fontWeight: '700', color: colors.textPrimary, marginHorizontal: 8},
+  timeArrow: {padding: 8},
   devInput: {borderWidth: 1, borderColor: '#ddd', borderRadius: borderRadius.sm, paddingHorizontal: 12, paddingVertical: 10, fontSize: 13, marginBottom: spacing.sm, fontFamily: 'monospace'},
   devButtons: {flexDirection: 'row', gap: spacing.sm},
   devBtn: {flex: 1, padding: 12, borderRadius: borderRadius.sm, alignItems: 'center'},
