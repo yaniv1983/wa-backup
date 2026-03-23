@@ -82,3 +82,5 @@ android/app/src/main/assets/index.android.bundle
 !.yarn/releases
 !.yarn/sdks
 !.yarn/versions
+*.log
+hs_err_*
