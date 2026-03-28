@@ -9,9 +9,14 @@ const HISTORY_KEY = '@wa_backup_history';
 const SETTINGS_KEY = '@wa_backup_settings';
 const MAX_RETRIES = 3;
 const RETRY_DELAYS = [5000, 15000, 45000];
+const STALE_TIMEOUT_MS = 2 * 60 * 60 * 1000; // 2 hours
 
 // Global lock to prevent concurrent backups
 let backupInProgress = false;
+
+function log(msg: string) {
+  console.log(`[WA-Backup] ${msg}`);
+}
 
 export async function getSettings(): Promise<BackupSettings> {
   const raw = await AsyncStorage.getItem(SETTINGS_KEY);
@@ -43,6 +48,27 @@ async function saveBackupRecord(record: BackupRecord): Promise<void> {
   );
 }
 
+// Mark stale "in_progress" records as failed (app was killed mid-backup)
+export async function cleanupStaleRecords(): Promise<number> {
+  const history = await getBackupHistory();
+  const now = Date.now();
+  let cleaned = 0;
+
+  for (const record of history) {
+    if (record.status === 'in_progress' && (now - record.timestamp) > STALE_TIMEOUT_MS) {
+      record.status = 'failed';
+      record.error = 'Backup was interrupted (app was stopped by the system)';
+      cleaned++;
+    }
+  }
+
+  if (cleaned > 0) {
+    await AsyncStorage.setItem(HISTORY_KEY, JSON.stringify(history));
+    log(`Cleaned up ${cleaned} stale backup records`);
+  }
+  return cleaned;
+}
+
 function delay(ms: number): Promise<void> {
   return new Promise(resolve => setTimeout(resolve, ms));
 }
@@ -71,14 +97,18 @@ async function _doBackup(
 ): Promise<BackupRecord> {
   const settings = await getSettings();
 
+  log('Starting backup...');
+
   if (settings.wifiOnly) {
     const wifi = await isWifiConnected();
     if (!wifi) {
+      log('WiFi not connected, aborting');
       throw new Error('WiFi not connected. Backup requires WiFi connection.');
     }
   }
 
   const files = await findBackupFiles(settings.useRoot, settings.whatsappVariant);
+  log(`Found ${files.length} backup files`);
   if (files.length === 0) {
     throw new Error(
       'No WhatsApp backup files found. Make sure WhatsApp is installed and has created a local backup.',
@@ -86,6 +116,7 @@ async function _doBackup(
   }
 
   const latestFile = files[0];
+  log(`Selected: ${latestFile.name} (${latestFile.size} bytes)`);
   const recordId = `backup_${Date.now()}`;
 
   const record: BackupRecord = {
@@ -114,6 +145,7 @@ async function _doBackup(
     let lastError: Error | null = null;
     for (let attempt = 0; attempt < MAX_RETRIES; attempt++) {
       try {
+        log(`Upload attempt ${attempt + 1}/${MAX_RETRIES}`);
         const driveFileId = await uploadFile(
           uploadPath,
           `${latestFile.name}_${new Date().toISOString().slice(0, 10)}`,
@@ -125,6 +157,7 @@ async function _doBackup(
         record.driveFileId = driveFileId;
         record.status = 'completed';
         await saveBackupRecord(record);
+        log('Backup completed successfully');
 
         // Enforce retention
         if (settings.backupRetentionCount > 0) {
@@ -143,7 +176,9 @@ async function _doBackup(
         return record;
       } catch (e: any) {
         lastError = e;
+        log(`Attempt ${attempt + 1} failed: ${e.message}`);
         if (attempt < MAX_RETRIES - 1) {
+          log(`Retrying in ${RETRY_DELAYS[attempt] / 1000}s...`);
           await delay(RETRY_DELAYS[attempt]);
         }
       }
@@ -155,6 +190,7 @@ async function _doBackup(
     record.error = error.message;
     await saveBackupRecord(record);
     await showBackupComplete(false, error.message);
+    log(`Backup failed: ${error.message}`);
     throw error;
   }
 }

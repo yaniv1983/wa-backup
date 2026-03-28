@@ -10,15 +10,33 @@ import {
   RefreshControl,
   PermissionsAndroid,
   Platform,
+  NativeModules,
+  Linking,
 } from 'react-native';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import Icon from 'react-native-vector-icons/MaterialCommunityIcons';
 import {BackupFile, BackupRecord, UploadProgress} from '../types';
 import {findBackupFiles, formatFileSize} from '../services/fileService';
 import {isSignedIn, signIn, signOut, configureGoogleSignIn} from '../services/googleDriveService';
-import {performBackup, getBackupHistory, getSettings, isBackupRunning} from '../services/backupManager';
+import {performBackup, getBackupHistory, getSettings, isBackupRunning, cleanupStaleRecords} from '../services/backupManager';
 import {isWifiConnected} from '../services/networkService';
 import {requestStoragePermission, hasStoragePermission} from '../services/permissionService';
+import {ensureBackupScheduled} from '../services/backgroundService';
 import {colors, spacing, borderRadius} from '../theme';
+
+async function requestBatteryOptimizationExemption() {
+  try {
+    const alreadyAsked = await AsyncStorage.getItem('@wa_battery_asked');
+    if (alreadyAsked) return;
+    await AsyncStorage.setItem('@wa_battery_asked', 'true');
+    // Request battery optimization exemption via system intent
+    await Linking.sendIntent('android.settings.REQUEST_IGNORE_BATTERY_OPTIMIZATIONS', [
+      {key: 'package', value: 'com.wabackup'},
+    ]);
+  } catch {
+    // Silently fail - not critical, some devices don't support this intent
+  }
+}
 
 export default function HomeScreen() {
   const [files, setFiles] = useState<BackupFile[]>([]);
@@ -53,11 +71,19 @@ export default function HomeScreen() {
   useEffect(() => {
     // Configure Google Sign-In with custom client ID if set
     getSettings().then(s => configureGoogleSignIn(s.customWebClientId));
+    // Clean up stale "Running" records from killed backups
+    cleanupStaleRecords().catch(() => {});
+    // Re-schedule alarm if auto backup is enabled (survives reinstalls/updates)
+    ensureBackupScheduled();
     // Request notification permission (Android 13+)
     if (Platform.OS === 'android' && Platform.Version >= 33) {
       PermissionsAndroid.request(
         'android.permission.POST_NOTIFICATIONS' as any,
       ).catch(() => {});
+    }
+    // Request battery optimization exemption for reliable background backups
+    if (Platform.OS === 'android') {
+      requestBatteryOptimizationExemption();
     }
     requestStoragePermission().then((granted) => {
       setStorageGranted(granted);
