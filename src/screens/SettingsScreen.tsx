@@ -1,6 +1,6 @@
 import React, {useState, useEffect} from 'react';
 import {
-  View, Text, Switch, StyleSheet, TouchableOpacity, Alert, ScrollView, Platform,
+  View, Text, Switch, StyleSheet, TouchableOpacity, Alert, ScrollView, Platform, Linking,
 } from 'react-native';
 // DateTimePicker removed - crashes on some devices (Xiaomi MIUI)
 import Icon from 'react-native-vector-icons/MaterialCommunityIcons';
@@ -40,7 +40,17 @@ export default function SettingsScreen() {
       try {
         if (value) {
           await startBackgroundBackup();
-          Alert.alert('Auto Backup', 'Automatic backup has been enabled.');
+          Alert.alert(
+            'Auto Backup Enabled',
+            'For reliable background backups on Xiaomi/Samsung/OPPO devices, please ensure:\n\n' +
+            '1. Autostart is enabled for WA Backup\n' +
+            '2. Battery optimization is set to "No restrictions"\n\n' +
+            'Tap "Open Settings" to check.',
+            [
+              {text: 'Later', style: 'cancel'},
+              {text: 'Open Settings', onPress: () => Linking.openSettings()},
+            ],
+          );
         } else {
           await stopBackgroundBackup();
           Alert.alert('Auto Backup', 'Automatic backup has been disabled.');
@@ -286,7 +296,7 @@ export default function SettingsScreen() {
       <Text style={styles.sectionHeader}>About</Text>
       <View style={styles.card}>
         <Text style={styles.cardTitle}>WA Backup</Text>
-        <Text style={styles.cardSubtitle}>Version 1.5.1</Text>
+        <Text style={styles.cardSubtitle}>Version 1.5.3</Text>
         <Text style={[styles.cardSubtitle, {marginTop: spacing.xs}]}>
           Backup WhatsApp databases to Google Drive
         </Text>

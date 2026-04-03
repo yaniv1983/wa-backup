@@ -79,8 +79,8 @@ android {
         applicationId "com.wabackup"
         minSdkVersion rootProject.ext.minSdkVersion
         targetSdkVersion rootProject.ext.targetSdkVersion
-        versionCode 3
-        versionName "1.5.1"
+        versionCode 4
+        versionName "1.5.3"
     }
     signingConfigs {
         debug {
