@@ -1,4 +1,5 @@
 import {GoogleSignin} from '@react-native-google-signin/google-signin';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import RNFS from 'react-native-fs';
 import {DriveFolder, UploadProgress} from '../types';
 import {DEFAULT_WEB_CLIENT_ID} from '../config';
@@ -7,6 +8,7 @@ const DRIVE_API = 'https://www.googleapis.com/drive/v3';
 const DRIVE_UPLOAD_API = 'https://www.googleapis.com/upload/drive/v3';
 const DEFAULT_FOLDER_NAME = 'WA Business Backup';
 const CHUNK_SIZE = 5 * 1024 * 1024; // 5MB chunks
+const UPLOAD_SESSION_KEY = '@wa_upload_session';
 
 export function configureGoogleSignIn(customClientId?: string) {
   GoogleSignin.configure({
@@ -149,6 +151,35 @@ async function uploadChunk(
   });
 }
 
+// Persist upload session so it can be resumed if the process is killed (e.g. by MIUI)
+interface UploadSession {
+  uploadUri: string;
+  filePath: string;
+  fileName: string;
+  totalBytes: number;
+  createdAt: number;
+}
+
+async function saveUploadSession(session: UploadSession): Promise<void> {
+  await AsyncStorage.setItem(UPLOAD_SESSION_KEY, JSON.stringify(session));
+}
+
+async function getUploadSession(): Promise<UploadSession | null> {
+  const raw = await AsyncStorage.getItem(UPLOAD_SESSION_KEY);
+  if (!raw) return null;
+  const session = JSON.parse(raw) as UploadSession;
+  // Sessions older than 24h are expired (Google resumable URIs last ~1 week, but be safe)
+  if (Date.now() - session.createdAt > 24 * 60 * 60 * 1000) {
+    await AsyncStorage.removeItem(UPLOAD_SESSION_KEY);
+    return null;
+  }
+  return session;
+}
+
+async function clearUploadSession(): Promise<void> {
+  await AsyncStorage.removeItem(UPLOAD_SESSION_KEY);
+}
+
 export async function uploadFile(
   filePath: string,
   fileName: string,
@@ -156,6 +187,25 @@ export async function uploadFile(
   driveFolderId?: string,
   driveFolderName?: string,
 ): Promise<string> {
+  // Check for a previous session that can be resumed
+  const prevSession = await getUploadSession();
+  if (prevSession && prevSession.filePath === filePath) {
+    try {
+      console.log('[WA-Backup] Found previous upload session, attempting resume...');
+      const fileId = await resumeUpload(
+        prevSession.uploadUri,
+        prevSession.filePath,
+        prevSession.totalBytes,
+        onProgress,
+      );
+      await clearUploadSession();
+      return fileId;
+    } catch (e: any) {
+      console.log(`[WA-Backup] Resume failed (${e.message}), starting fresh upload`);
+      await clearUploadSession();
+    }
+  }
+
   const token = await getAccessToken();
   const folderId = await getOrCreateFolder(token, driveFolderId, driveFolderName);
   const fileStats = await RNFS.stat(filePath);
@@ -188,6 +238,9 @@ export async function uploadFile(
     throw new Error('Failed to initiate resumable upload - no Location header');
   }
 
+  // Persist session for resume capability
+  await saveUploadSession({uploadUri, filePath, fileName, totalBytes, createdAt: Date.now()});
+
   // Upload in chunks
   let bytesUploaded = 0;
 
@@ -207,6 +260,7 @@ export async function uploadFile(
 
     if (result.status === 200 || result.status === 201) {
       // Upload complete
+      await clearUploadSession();
       const data = JSON.parse(result.responseText);
       onProgress?.({bytesUploaded: totalBytes, totalBytes, percentage: 100});
       return data.id;
@@ -228,6 +282,7 @@ export async function uploadFile(
     });
   }
 
+  await clearUploadSession();
   throw new Error('Upload ended unexpectedly');
 }
 

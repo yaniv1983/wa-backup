@@ -236,6 +236,32 @@ export default function HomeScreen() {
         </Text>
       </TouchableOpacity>
 
+      {/* Test Scheduled Backup - simulates the headless task code path */}
+      <TouchableOpacity
+        style={[styles.testBtn, uploading && styles.backupBtnDisabled]}
+        onPress={async () => {
+          if (uploading) return;
+          setUploading(true);
+          setProgress(null);
+          try {
+            // Exact same code path as headlessBackupTask.ts
+            const s = await getSettings();
+            configureGoogleSignIn(s.customWebClientId);
+            await performBackup((p) => setProgress(p));
+            Alert.alert('Success', 'Scheduled backup simulation completed!');
+            await loadData();
+          } catch (e: any) {
+            Alert.alert('Scheduled Backup Failed', e.message);
+          } finally {
+            setUploading(false);
+            setProgress(null);
+          }
+        }}
+        disabled={uploading}>
+        <Icon name="clock-check-outline" size={20} color={colors.primary} />
+        <Text style={styles.testBtnText}>Test Scheduled Backup</Text>
+      </TouchableOpacity>
+
       {/* Progress Bar */}
       {progress && (
         <View style={styles.progressContainer}>
@@ -262,6 +288,7 @@ export default function HomeScreen() {
               <View style={styles.historyInfo}>
                 <Text style={styles.historyFile}>{record.fileName}</Text>
                 <Text style={styles.historyDate}>{new Date(record.timestamp).toLocaleString('he-IL')}</Text>
+                {record.error && <Text style={styles.historyError}>{record.error}</Text>}
               </View>
               <Text style={[styles.historyStatus, {color: record.status === 'completed' ? colors.success : record.status === 'failed' ? colors.error : colors.warning}]}>
                 {record.status === 'completed' ? 'Done' : record.status === 'failed' ? 'Failed' : 'Running'}
@@ -377,6 +404,19 @@ const styles = StyleSheet.create({
     gap: spacing.sm,
   },
   backupBtnDisabled: {backgroundColor: '#a5d6a7'},
+  testBtn: {
+    backgroundColor: colors.surface,
+    borderRadius: borderRadius.md,
+    borderWidth: 1,
+    borderColor: colors.primary,
+    padding: 12,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginBottom: spacing.md,
+    gap: spacing.sm,
+  },
+  testBtnText: {color: colors.primary, fontSize: 14, fontWeight: '600'},
   backupBtnText: {color: '#fff', fontSize: 18, fontWeight: '700'},
   progressContainer: {marginBottom: spacing.md},
   progressBar: {height: 8, backgroundColor: '#e0e0e0', borderRadius: 4, overflow: 'hidden'},
@@ -395,6 +435,7 @@ const styles = StyleSheet.create({
   historyInfo: {flex: 1},
   historyFile: {fontSize: 13, fontWeight: '500', color: colors.textPrimary},
   historyDate: {fontSize: 11, color: colors.textSecondary, marginTop: 2},
+  historyError: {fontSize: 11, color: colors.error, marginTop: 2},
   historyStatus: {fontSize: 12, fontWeight: '600'},
   grantBtn: {
     backgroundColor: colors.google,

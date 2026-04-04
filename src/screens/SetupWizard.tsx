@@ -1,4 +1,4 @@
-import React, {useState} from 'react';
+import React, {useState, useMemo} from 'react';
 import {
   View,
   Text,
@@ -7,40 +7,62 @@ import {
   SafeAreaView,
   Alert,
   StatusBar,
+  Linking,
+  NativeModules,
 } from 'react-native';
 import Icon from 'react-native-vector-icons/MaterialCommunityIcons';
-import {configureGoogleSignIn, signIn, isSignedIn} from '../services/googleDriveService';
+import {configureGoogleSignIn, signIn} from '../services/googleDriveService';
 import {requestStoragePermission} from '../services/permissionService';
 import {colors, spacing, borderRadius} from '../theme';
+
+// Detect Xiaomi/MIUI devices that aggressively kill background processes
+const {PlatformConstants} = NativeModules;
+const brand = (PlatformConstants?.Brand || '').toLowerCase();
+const isMIUI = brand === 'xiaomi' || brand === 'redmi' || brand === 'poco';
 
 interface Props {
   onComplete: () => void;
 }
 
-const STEPS = [
+type StepId = 'welcome' | 'google' | 'storage' | 'battery' | 'done';
+
+const ALL_STEPS: {id: StepId; icon: string; iconColor: string}[] = [
   {id: 'welcome', icon: 'cloud-upload', iconColor: colors.primary},
   {id: 'google', icon: 'google-drive', iconColor: colors.google},
   {id: 'storage', icon: 'folder-lock', iconColor: colors.primaryDark},
+  {id: 'battery', icon: 'battery-check', iconColor: '#FF9800'},
   {id: 'done', icon: 'check-circle', iconColor: colors.success},
-] as const;
+];
+
+const STEPS = isMIUI
+  ? ALL_STEPS
+  : ALL_STEPS.filter(s => s.id !== 'battery');
 
 export default function SetupWizard({onComplete}: Props) {
-  const [step, setStep] = useState(0);
+  const [stepIndex, setStepIndex] = useState(0);
   const [googleDone, setGoogleDone] = useState(false);
   const [storageDone, setStorageDone] = useState(false);
 
-  const currentStep = STEPS[step];
+  const currentStep = STEPS[stepIndex];
+  const stepId = currentStep.id;
+
+  const goTo = (id: StepId) => {
+    const idx = STEPS.findIndex(s => s.id === id);
+    if (idx >= 0) setStepIndex(idx);
+  };
+
+  const goNext = () => {
+    if (stepIndex < STEPS.length - 1) setStepIndex(stepIndex + 1);
+  };
 
   const handleGoogleSignIn = async () => {
     try {
       configureGoogleSignIn();
       await signIn();
       setGoogleDone(true);
-      setStep(2);
+      goTo('storage');
     } catch (e: any) {
-      if (e.message?.includes('cancelled')) {
-        return; // User cancelled, stay on step
-      }
+      if (e.message?.includes('cancelled')) return;
       Alert.alert('Sign In Failed', e.message || 'Please try again.');
     }
   };
@@ -49,7 +71,7 @@ export default function SetupWizard({onComplete}: Props) {
     const granted = await requestStoragePermission();
     if (granted) {
       setStorageDone(true);
-      setStep(3);
+      goNext();
     } else {
       Alert.alert(
         'Permission Required',
@@ -67,7 +89,7 @@ export default function SetupWizard({onComplete}: Props) {
         {STEPS.map((_, i) => (
           <View
             key={i}
-            style={[styles.dot, i === step && styles.dotActive, i < step && styles.dotCompleted]}
+            style={[styles.dot, i === stepIndex && styles.dotActive, i < stepIndex && styles.dotCompleted]}
           />
         ))}
       </View>
@@ -78,7 +100,7 @@ export default function SetupWizard({onComplete}: Props) {
           <Icon name={currentStep.icon} size={64} color={currentStep.iconColor} />
         </View>
 
-        {step === 0 && (
+        {stepId === 'welcome' && (
           <>
             <Text style={styles.title}>Welcome to WA Backup</Text>
             <Text style={styles.subtitle}>
@@ -88,7 +110,7 @@ export default function SetupWizard({onComplete}: Props) {
           </>
         )}
 
-        {step === 1 && (
+        {stepId === 'google' && (
           <>
             <Text style={styles.title}>Sign in to Google</Text>
             <Text style={styles.subtitle}>
@@ -97,7 +119,7 @@ export default function SetupWizard({onComplete}: Props) {
           </>
         )}
 
-        {step === 2 && (
+        {stepId === 'storage' && (
           <>
             <Text style={styles.title}>Storage Access</Text>
             <Text style={styles.subtitle}>
@@ -106,7 +128,20 @@ export default function SetupWizard({onComplete}: Props) {
           </>
         )}
 
-        {step === 3 && (
+        {stepId === 'battery' && (
+          <>
+            <Text style={styles.title}>Background Backup</Text>
+            <Text style={styles.subtitle}>
+              For scheduled backups to work reliably, your phone must allow WA Backup to run in the background.{'\n\n'}
+              Open App Settings and:{'\n'}
+              {'\u2022'} Set Battery to "No restrictions"{'\n'}
+              {'\u2022'} Enable "Autostart" (Xiaomi/MIUI){'\n'}
+              {'\u2022'} Disable any "Battery saver" for this app
+            </Text>
+          </>
+        )}
+
+        {stepId === 'done' && (
           <>
             <Text style={styles.title}>You're All Set!</Text>
             <Text style={styles.subtitle}>
@@ -122,38 +157,51 @@ export default function SetupWizard({onComplete}: Props) {
 
       {/* Actions */}
       <View style={styles.actions}>
-        {step === 0 && (
-          <TouchableOpacity style={styles.primaryBtn} onPress={() => setStep(1)}>
+        {stepId === 'welcome' && (
+          <TouchableOpacity style={styles.primaryBtn} onPress={() => goTo('google')}>
             <Text style={styles.primaryBtnText}>Get Started</Text>
             <Icon name="arrow-right" size={20} color="#fff" />
           </TouchableOpacity>
         )}
 
-        {step === 1 && (
+        {stepId === 'google' && (
           <>
             <TouchableOpacity style={styles.googleBtn} onPress={handleGoogleSignIn}>
               <Icon name="google" size={20} color="#fff" />
               <Text style={styles.primaryBtnText}>Sign in with Google</Text>
             </TouchableOpacity>
-            <TouchableOpacity style={styles.skipBtn} onPress={() => setStep(2)}>
+            <TouchableOpacity style={styles.skipBtn} onPress={() => goTo('storage')}>
               <Text style={styles.skipBtnText}>Skip for now</Text>
             </TouchableOpacity>
           </>
         )}
 
-        {step === 2 && (
+        {stepId === 'storage' && (
           <>
             <TouchableOpacity style={styles.primaryBtn} onPress={handleStoragePermission}>
               <Icon name="folder-lock" size={20} color="#fff" />
               <Text style={styles.primaryBtnText}>Grant Storage Access</Text>
             </TouchableOpacity>
-            <TouchableOpacity style={styles.skipBtn} onPress={() => setStep(3)}>
+            <TouchableOpacity style={styles.skipBtn} onPress={goNext}>
               <Text style={styles.skipBtnText}>Skip for now</Text>
             </TouchableOpacity>
           </>
         )}
 
-        {step === 3 && (
+        {stepId === 'battery' && (
+          <>
+            <TouchableOpacity style={styles.batteryBtn} onPress={() => Linking.openSettings().catch(() => {})}>
+              <Icon name="cog" size={20} color="#fff" />
+              <Text style={styles.primaryBtnText}>Open App Settings</Text>
+            </TouchableOpacity>
+            <TouchableOpacity style={styles.primaryBtn} onPress={() => goTo('done')}>
+              <Text style={styles.primaryBtnText}>Continue</Text>
+              <Icon name="arrow-right" size={20} color="#fff" />
+            </TouchableOpacity>
+          </>
+        )}
+
+        {stepId === 'done' && (
           <TouchableOpacity style={styles.primaryBtn} onPress={onComplete}>
             <Text style={styles.primaryBtnText}>Start Backing Up</Text>
             <Icon name="arrow-right" size={20} color="#fff" />
@@ -224,6 +272,16 @@ const styles = StyleSheet.create({
   },
   googleBtn: {
     backgroundColor: colors.google,
+    borderRadius: borderRadius.md,
+    padding: 18,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: spacing.sm,
+    elevation: 3,
+  },
+  batteryBtn: {
+    backgroundColor: '#FF9800',
     borderRadius: borderRadius.md,
     padding: 18,
     flexDirection: 'row',
