@@ -1,13 +1,10 @@
 package com.wabackup
 
-import android.app.AlarmManager
-import android.app.PendingIntent
 import android.content.BroadcastReceiver
 import android.content.Context
 import android.content.Intent
 import android.os.Build
 import android.os.Bundle
-import com.facebook.react.HeadlessJsTaskService
 import java.util.Calendar
 
 class BackupAlarmReceiver : BroadcastReceiver() {
@@ -45,24 +42,7 @@ class BackupAlarmReceiver : BroadcastReceiver() {
                 add(Calendar.DAY_OF_YEAR, 1)
             }
 
-            val alarmManager = context.getSystemService(Context.ALARM_SERVICE) as AlarmManager
-            val alarmIntent = Intent(context, BackupAlarmReceiver::class.java)
-            val pendingIntent = PendingIntent.getBroadcast(
-                context,
-                1001,
-                alarmIntent,
-                PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
-            )
-
-            try {
-                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S && alarmManager.canScheduleExactAlarms()) {
-                    alarmManager.setExactAndAllowWhileIdle(AlarmManager.RTC_WAKEUP, calendar.timeInMillis, pendingIntent)
-                } else {
-                    alarmManager.setAndAllowWhileIdle(AlarmManager.RTC_WAKEUP, calendar.timeInMillis, pendingIntent)
-                }
-            } catch (_: Exception) {
-                alarmManager.setAndAllowWhileIdle(AlarmManager.RTC_WAKEUP, calendar.timeInMillis, pendingIntent)
-            }
+            AlarmSchedulerModule.scheduleAlarmAt(context, calendar.timeInMillis)
         }
     }
 }

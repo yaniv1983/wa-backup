@@ -19,8 +19,6 @@ class AlarmSchedulerModule(reactContext: ReactApplicationContext) : ReactContext
     @ReactMethod
     fun scheduleDaily(hour: Int, minute: Int, promise: Promise) {
         try {
-            val alarmManager = reactApplicationContext.getSystemService(Context.ALARM_SERVICE) as AlarmManager
-
             val calendar = Calendar.getInstance().apply {
                 set(Calendar.HOUR_OF_DAY, hour)
                 set(Calendar.MINUTE, minute)
@@ -32,35 +30,7 @@ class AlarmSchedulerModule(reactContext: ReactApplicationContext) : ReactContext
                 }
             }
 
-            val intent = Intent(reactApplicationContext, BackupAlarmReceiver::class.java)
-            val pendingIntent = PendingIntent.getBroadcast(
-                reactApplicationContext,
-                1001,
-                intent,
-                PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
-            )
-
-            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
-                if (alarmManager.canScheduleExactAlarms()) {
-                    alarmManager.setExactAndAllowWhileIdle(
-                        AlarmManager.RTC_WAKEUP,
-                        calendar.timeInMillis,
-                        pendingIntent
-                    )
-                } else {
-                    alarmManager.setAndAllowWhileIdle(
-                        AlarmManager.RTC_WAKEUP,
-                        calendar.timeInMillis,
-                        pendingIntent
-                    )
-                }
-            } else {
-                alarmManager.setExactAndAllowWhileIdle(
-                    AlarmManager.RTC_WAKEUP,
-                    calendar.timeInMillis,
-                    pendingIntent
-                )
-            }
+            scheduleAlarmAt(reactApplicationContext, calendar.timeInMillis)
 
             // Save for rescheduling after reboot
             prefs.edit()
@@ -107,5 +77,37 @@ class AlarmSchedulerModule(reactContext: ReactApplicationContext) : ReactContext
         map.putInt("hour", prefs.getInt("hour", 3))
         map.putInt("minute", prefs.getInt("minute", 30))
         promise.resolve(map)
+    }
+
+    companion object {
+        /**
+         * Schedule alarm using setAlarmClock - this is exempt from ALL battery
+         * restrictions including Doze, MIUI app standby, and OEM power saving.
+         * It shows an alarm icon in the status bar which also signals to the OS
+         * that this app has a legitimate reason to wake up.
+         */
+        fun scheduleAlarmAt(context: Context, triggerAtMillis: Long) {
+            val alarmManager = context.getSystemService(Context.ALARM_SERVICE) as AlarmManager
+            val intent = Intent(context, BackupAlarmReceiver::class.java)
+            val pendingIntent = PendingIntent.getBroadcast(
+                context,
+                1001,
+                intent,
+                PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
+            )
+
+            // setAlarmClock is the most reliable way to fire at an exact time.
+            // It's exempt from Doze, app standby, and MIUI battery optimization.
+            val showIntent = PendingIntent.getActivity(
+                context,
+                0,
+                Intent(context, MainActivity::class.java),
+                PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
+            )
+            alarmManager.setAlarmClock(
+                AlarmManager.AlarmClockInfo(triggerAtMillis, showIntent),
+                pendingIntent
+            )
+        }
     }
 }

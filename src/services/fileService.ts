@@ -89,12 +89,20 @@ export async function findBackupFiles(
     }
   }
 
+  // Prefer the live database (msgstore.db.crypt15 - no timestamp) over dated snapshots.
+  // The live file is what WhatsApp continuously updates; dated files are old snapshots.
   files.sort((a, b) => {
+    // Live DB files like "msgstore.db.crypt15" (no date in name) come first
+    const aIsLive = /^msgstore\.db\.crypt\d+$/i.test(a.name) ? 1 : 0;
+    const bIsLive = /^msgstore\.db\.crypt\d+$/i.test(b.name) ? 1 : 0;
+    if (aIsLive !== bIsLive) return bIsLive - aIsLive;
+    // Then prefer main backup files over other crypt files
     const aIsMain = isMainBackupFile(a.name) ? 1 : 0;
     const bIsMain = isMainBackupFile(b.name) ? 1 : 0;
     if (aIsMain !== bIsMain) return bIsMain - aIsMain;
-    if (a.size !== b.size) return b.size - a.size;
-    return b.lastModified - a.lastModified;
+    // Then by modification time (newest first)
+    if (a.lastModified !== b.lastModified) return b.lastModified - a.lastModified;
+    return b.size - a.size;
   });
 
   return files;
