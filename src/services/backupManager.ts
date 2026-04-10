@@ -117,6 +117,24 @@ async function _doBackup(
 
   const latestFile = files[0];
   log(`Selected: ${latestFile.name} (${latestFile.size} bytes)`);
+
+  // Skip if this exact file was already backed up successfully (same name + size)
+  const history = await getBackupHistory();
+  const lastSuccess = history.find(r => r.status === 'completed');
+  if (lastSuccess && lastSuccess.fileName === latestFile.name && lastSuccess.fileSize === latestFile.size) {
+    log('Skipping backup - file unchanged since last successful backup');
+    const skipRecord: BackupRecord = {
+      id: `backup_${Date.now()}`,
+      fileName: latestFile.name,
+      fileSize: latestFile.size,
+      driveFileId: '',
+      timestamp: Date.now(),
+      status: 'skipped',
+    };
+    await saveBackupRecord(skipRecord);
+    return skipRecord;
+  }
+
   const recordId = `backup_${Date.now()}`;
 
   const record: BackupRecord = {

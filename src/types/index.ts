@@ -12,7 +12,7 @@ export interface BackupRecord {
   fileSize: number;
   driveFileId: string;
   timestamp: number;
-  status: 'completed' | 'failed' | 'in_progress';
+  status: 'completed' | 'failed' | 'in_progress' | 'skipped';
   error?: string;
 }
 

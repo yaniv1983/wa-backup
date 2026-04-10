@@ -133,8 +133,12 @@ export default function HomeScreen() {
     setUploading(true);
     setProgress(null);
     try {
-      await performBackup((p) => setProgress(p));
-      Alert.alert('Success', 'Backup completed successfully!');
+      const result = await performBackup((p) => setProgress(p));
+      if (result.status === 'skipped') {
+        Alert.alert('No Changes', 'The backup file hasn\'t changed since the last backup.');
+      } else {
+        Alert.alert('Success', 'Backup completed successfully!');
+      }
       await loadData();
     } catch (e: any) {
       Alert.alert('Backup Failed', e.message);
@@ -255,17 +259,17 @@ export default function HomeScreen() {
           {history.slice(0, 3).map((record) => (
             <View key={record.id} style={styles.historyItem}>
               <Icon
-                name={record.status === 'completed' ? 'check-circle' : record.status === 'failed' ? 'alert-circle' : 'progress-clock'}
+                name={record.status === 'completed' ? 'check-circle' : record.status === 'failed' ? 'alert-circle' : record.status === 'skipped' ? 'skip-next-circle' : 'progress-clock'}
                 size={18}
-                color={record.status === 'completed' ? colors.success : record.status === 'failed' ? colors.error : colors.warning}
+                color={record.status === 'completed' ? colors.success : record.status === 'failed' ? colors.error : record.status === 'skipped' ? colors.textSecondary : colors.warning}
               />
               <View style={styles.historyInfo}>
                 <Text style={styles.historyFile}>{record.fileName}</Text>
                 <Text style={styles.historyDate}>{new Date(record.timestamp).toLocaleString('he-IL')}</Text>
                 {record.error && <Text style={styles.historyError}>{record.error}</Text>}
               </View>
-              <Text style={[styles.historyStatus, {color: record.status === 'completed' ? colors.success : record.status === 'failed' ? colors.error : colors.warning}]}>
-                {record.status === 'completed' ? 'Done' : record.status === 'failed' ? 'Failed' : 'Running'}
+              <Text style={[styles.historyStatus, {color: record.status === 'completed' ? colors.success : record.status === 'failed' ? colors.error : record.status === 'skipped' ? colors.textSecondary : colors.warning}]}>
+                {record.status === 'completed' ? 'Done' : record.status === 'failed' ? 'Failed' : record.status === 'skipped' ? 'Skipped' : 'Running'}
               </Text>
             </View>
           ))}

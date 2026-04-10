@@ -24,8 +24,8 @@ export default function HistoryScreen() {
   };
 
   const renderItem = ({item}: {item: BackupRecord}) => {
-    const icon = item.status === 'completed' ? 'check-circle' : item.status === 'failed' ? 'alert-circle' : 'progress-clock';
-    const iconColor = item.status === 'completed' ? colors.success : item.status === 'failed' ? colors.error : colors.warning;
+    const icon = item.status === 'completed' ? 'check-circle' : item.status === 'failed' ? 'alert-circle' : item.status === 'skipped' ? 'skip-next-circle' : 'progress-clock';
+    const iconColor = item.status === 'completed' ? colors.success : item.status === 'failed' ? colors.error : item.status === 'skipped' ? colors.textSecondary : colors.warning;
     return (
       <View style={styles.item}>
         <Icon name={icon} size={24} color={iconColor} />
@@ -34,9 +34,9 @@ export default function HistoryScreen() {
           <Text style={styles.meta}>{formatFileSize(item.fileSize)} | {new Date(item.timestamp).toLocaleString('he-IL')}</Text>
           {item.error && <Text style={styles.error}>{item.error}</Text>}
         </View>
-        <View style={[styles.badge, {backgroundColor: item.status === 'completed' ? '#E8F5E9' : item.status === 'failed' ? '#FFEBEE' : '#FFF3E0'}]}>
+        <View style={[styles.badge, {backgroundColor: item.status === 'completed' ? '#E8F5E9' : item.status === 'failed' ? '#FFEBEE' : item.status === 'skipped' ? '#F5F5F5' : '#FFF3E0'}]}>
           <Text style={[styles.badgeText, {color: iconColor}]}>
-            {item.status === 'completed' ? 'Done' : item.status === 'failed' ? 'Failed' : 'Running'}
+            {item.status === 'completed' ? 'Done' : item.status === 'failed' ? 'Failed' : item.status === 'skipped' ? 'Skipped' : 'Running'}
           </Text>
         </View>
       </View>
